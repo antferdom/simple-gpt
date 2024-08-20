@@ -1,0 +1,25 @@
+Deterministic decoding
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)
+
+
+Nonlinear activation function: approximate
+    nn.GELU(approximate="tanh")
+
+Test name: test_seed_42_gelu_tanh_b_5_t_30 (GELU approximate)
+> Hello, I'm a language model, not a program.
+
+So this morning I started studying for the interview in the lab. This was not
+> Hello, I'm a language model, and one of the reasons I love studying languages, to think that it can be a lot easier for those who
+> Hello, I'm a language model, and I wrote it off on the grounds that a language model would make me more fluent. But I'm not
+> Hello, I'm a language model, I really like languages. I like languages because like, they're good. And the way we talk about languages
+> Hello, I'm a language model, a language model I'm using for data modelling. All I did was test the results and then I wrote some
+
+Test name: test_seed_42_gelu_b_5_t_30 (GELU)
+> Hello, I'm a language model, not a program.
+
+So this morning I started studying for the interview in the lab. This was not
+> Hello, I'm a language model, and one of the reasons I love studying languages, to think that it can be a lot easier for those who
+> Hello, I'm a language model, and I wrote it off on the grounds that a language model would make me more fluent. But I'm not
+> Hello, I'm a language model, I really like languages. I like languages because like, they're good. And the way we talk about languages
+> Hello, I'm a language model, a language model I'm using for data modelling. All I did was test the results and then I wrote some
