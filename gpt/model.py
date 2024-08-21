@@ -3,8 +3,16 @@ from time import time
 from pathlib import Path
 from dataclasses import dataclass
 import torch
+import torch._inductor.config
 import torch.nn as nn
 from torch.nn import functional as F
+from torch.utils.flop_counter import FlopCounterMode
+from torch.amp.grad_scaler import GradScaler
+
+from torchao.sparsity.training import (
+    SemiSparseLinear,
+    swap_linear_with_semi_sparse_linear,
+)
 
 import tiktoken
 
@@ -31,13 +39,13 @@ class ModelArgs:
 
 
 class CausalSelfAttention(nn.Module):
-    def __init__(self, config: ModelArgs, alpha=0.5):
+    def __init__(self, config: ModelArgs, alpha=0.5, flash=False):
         super().__init__()
         self.max_seq_len = config.max_seq_len
         self.n_embd = config.n_embd
         self.n_heads = config.n_heads
         self.head_dim = config.n_embd // config.n_heads
-
+        self.flash = flash
         assert (
             self.head_dim * self.n_heads == self.n_embd
         ), "embed_dim must be divisible by num_heads"
@@ -45,10 +53,6 @@ class CausalSelfAttention(nn.Module):
 
         self.c_attn = nn.Linear(self.n_embd, 3 * self.n_embd)
         self.c_proj = nn.Linear(self.n_embd, self.n_embd)
-
-        # not really a 'bias', more of a mask, but following the OpenAI/HF naming though
-        self.register_buffer("bias", torch.tril(torch.ones(config.max_seq_len, config.max_seq_len))
-                                     .view(1, 1, config.max_seq_len, config.max_seq_len))
 
         # Custom initialization for linear layers (muP-initialization)
         for name, param in self.c_attn.named_parameters():
@@ -58,22 +62,38 @@ class CausalSelfAttention(nn.Module):
             if "weight" in name:
                 torch.nn.init.normal_(param, mean=0, std=alpha * (1 / config.n_embd) ** 0.5)
 
+        if not self.flash:
+            # causal mask to ensure that attention is only applied to the left in the input sequence
+            self.register_buffer("bias", torch.tril(torch.ones(config.max_seq_len, config.max_seq_len))
+                                    .view(1, 1, config.max_seq_len, config.max_seq_len))
+
 
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         # nh is "number of heads", hs is "head size", and C (number of channels) = nh * hs
-        # e.g. in GPT-2 (124M), n_heads=12, hs=64, so nh*hs=C=768 channels in the Transformer
+        # e.g. in GPT-2 (124M), n_head=12, hs=64, so nh*hs=C=768 channels in the Transformer
         qkv = self.c_attn(x)
         q, k, v = qkv.split(self.n_embd, dim=2)
         k = k.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2) # (B, nh, T, hs)
         q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2) # (B, nh, T, hs)
         v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2) # (B, nh, T, hs)
-        # attention (materializes the large (T,T) matrix for all the queries and keys)
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
-        att = F.softmax(att, dim=-1)
-        y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
+        if self.flash:
+            # efficient attention using Flash Attention CUDA kernels
+            y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+            """
+            mup
+                attn_output = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=mask, is_causal=True, scale=1 / self.head_dim)
+            """
+        if not self.flash:
+            # attention (materializes the large (T,T) matrix for all the queries and keys)
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+            att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+            att = F.softmax(att, dim=-1)
+            y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
         # output projection
         y = self.c_proj(y)
@@ -89,7 +109,7 @@ class FeedForward(nn.Module):
         self.n_embd = n_embd
         self.hidden_dim = hidden_dim
         self.c_fc    = nn.Linear(self.n_embd, self.hidden_dim)
-        self.gelu    = nn.GELU(approximate="tanh")
+        self.gelu    = nn.GELU()
         self.c_proj  = nn.Linear(self.hidden_dim, self.n_embd)
 
     def forward(self, x):
@@ -247,59 +267,63 @@ if __name__ == "__main__":
         device = torch.device("cuda")
     print(f"device: {device}")
 
-    torch.manual_seed(1337)
+    seed = 1337
+    torch.manual_seed(seed)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed(1337)
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
     train_loader = DataLoaderLite(B=16, T=1024)
 
     torch.set_float32_matmul_precision("high")
 
-    # get logits
     model = Transformer(ModelArgs())
-    model.to(device)
+
+    # print params: should be 0 if zero-3
+    total_params  = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"model params: {total_params}")
+
+    # enable sparsity only in the feedfoward layers
+    def swap_ffn_linear_layers(model):
+        sparse_config = {}
+
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Linear) and any(sub_name in name for sub_name in ['mlp.c_fc', 'mlp.c_proj']):
+                sparse_config[name] = SemiSparseLinear
+        swap_linear_with_semi_sparse_linear(model, sparse_config)
+
+        return model
+
+    model = model.to(device).to(torch.float16)
+    model = swap_ffn_linear_layers(model)
+    #import code; code.interact(local=locals())
+    torch._inductor.config.max_autotune = True
+    torch._inductor.config.max_autotune_gemm = True
+    torch._inductor.config.max_autotune_gemm_search_space = "DEFAULT"
+    torch._inductor.config.coordinate_descent_tuning = True
+    torch._inductor.config.conv_1x1_as_mm = True
+    torch._inductor.config.epilogue_fusion = False
+    torch._inductor.config.coordinate_descent_check_all_directions = True
+    model = torch.compile(model)
+
     # optimize!
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    run_name = f"LR:{3e-4}__Nhead:{ModelArgs().n_heads}_NLayer:{ModelArgs().n_layers}_EmbDim:{ModelArgs().n_embd}"
+    print(f"run_name: {run_name}")
+
     for i in range(50):
         st = time()
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        logits, loss = model(x, y)
+        with torch.autocast(device_type="cuda", dtype=torch.float16):
+            logits, loss = model(x, y)
+        # import code; code.interact(local=locals())
         loss.backward()
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         torch.cuda.synchronize()
         et = time() - st
         tokens_per_sec = (train_loader.B * train_loader.T) / (et)
         print(f"step {i}, loss: {loss.item()}, et: {et*1e3:.2f}ms, tok/sec: {tokens_per_sec:.2f}")
         # print(f"step {i}, loss: {loss.item()}") # loss is a tensor with a single element(cuda) -> item convert to float
-    import sys; sys.exit(0)
-
-    # generate! right now x is (B, T) where B = 5, T = 8
-    # set the seed to 42
-    torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
-    while x.size(1) < max_length:
-        # forward the model to get the logits
-        with torch.no_grad():
-            logits = model(x) # (B, T, vocab_size)
-            # take the logits at the last position
-            logits = logits[:, -1, :] # (B, vocab_size)
-            # get the probabilities
-            probs = F.softmax(logits, dim=-1)
-            # do top-k sampling of 50 (huggingface pipeline default)
-            # topk_probs here becomes (5, 50), topk_indices is (5, 50)
-            topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-            # select a token from the top-k probabilities
-            # note: multinomial does not demand the input to sum to 1
-            ix = torch.multinomial(topk_probs, 1) # (B, 1)
-            # gather the corresponding indices
-            xcol = torch.gather(topk_indices, -1, ix) # (B, 1)
-            # append to the sequence
-            x = torch.cat((x, xcol), dim=1)
-
-    # print the generated text
-    for i in range(num_return_sequences):
-        tokens = x[i, :max_length].tolist()
-        decoded = enc.decode(tokens)
-        print(">", decoded)
