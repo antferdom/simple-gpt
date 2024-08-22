@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 import tiktoken
-from model import Transformer
+from vanilla_model import Transformer
 import random
 import numpy as np
 

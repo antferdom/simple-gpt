@@ -8,7 +8,7 @@ import torch._inductor.config
 import torch.nn as nn
 import typer
 
-from model import ModelArgs, Transformer
+from vanilla_model import ModelArgs, Transformer
 from torchao.sparsity.training import (
     SemiSparseLinear,
     swap_linear_with_semi_sparse_linear,
@@ -115,7 +115,6 @@ def train(
     model = Transformer(ModelArgs())
     model.to(device)
 
-    # print params: should be 0 if zero-3
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"model params: {total_params}")
 

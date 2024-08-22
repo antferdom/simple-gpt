@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 import tiktoken
-from model import Transformer
+from vanilla_model import Transformer
 
 
 num_return_sequences = 5
