@@ -2,16 +2,12 @@ from pathlib import Path
 from time import time
 from typing import Optional
 
-import deepspeed
 import tiktoken
 import torch
 import torch._inductor.config
 import torch.nn as nn
 import typer
-from deepspeed import get_accelerator
-from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
-from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
-from deepspeed.utils import logger
+
 from model import ModelArgs, Transformer
 from torchao.sparsity.training import (
     SemiSparseLinear,
@@ -114,49 +110,17 @@ def train(
     run_name = f"LR:{3e-4}__Nhead:{ModelArgs().n_heads}_NLayer:{ModelArgs().n_layers}_EmbDim:{ModelArgs().n_embd}"
     print(f"run_name: {run_name}")
 
-    if local_rank == -1:
-        device = torch.device(get_accelerator().device_name())
-    else:
-        get_accelerator().set_device(local_rank)
-        device = torch.device(get_accelerator().device_name(), local_rank)
-        # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
-        deepspeed.init_distributed()
-
-    offload_device = "cpu" if offload else "none"
-
-    ds_config = {
-        "train_micro_batch_size_per_gpu": micro_batch_size,
-        "train_batch_size": global_batch_size,
-        "zero_optimization": {
-            "stage": zero_stage,
-            "offload_param": {"device": offload_device},
-            "offload_optimizer": {"device": offload_device},
-            "stage3_param_persistence_threshold": 1e4,
-            "stage3_max_live_parameters": 3e7,
-            "stage3_prefetch_bucket_size": 3e7,
-            "memory_efficient_linear": False,
-        },
-        "bfloat16": {"enabled": True},
-        "gradient_clipping": 1.0,
-        "wall_clock_breakdown": profile,
-    }
-
-    torch.distributed.barrier()
-    global_rank = torch.distributed.get_rank()
-
     train_loader = DataLoaderLite(B=micro_batch_size, T=sequence_length)
 
-    # zero-init
-    with deepspeed.zero.Init():
-        model = Transformer(ModelArgs())
-    model.train()
+    model = Transformer(ModelArgs())
+    model.to(device)
 
     # print params: should be 0 if zero-3
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"model params: {total_params}")
 
-    model = model.to(device).to(torch.float16)
     if sparse_ffn:
+        model = model.to(device).to(torch.float16)
         model = swap_ffn_linear_layers(model)
     # import code; code.interact(local=locals())
     if use_compile:
@@ -170,11 +134,10 @@ def train(
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        with torch.autocast(device_type="cuda", dtype=torch.float16):
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             logits, loss = model(x, y)
         # import code; code.interact(local=locals())
         loss.backward()
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
         torch.cuda.synchronize()
         et = time() - st

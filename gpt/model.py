@@ -9,11 +9,6 @@ from torch.nn import functional as F
 from torch.utils.flop_counter import FlopCounterMode
 from torch.amp.grad_scaler import GradScaler
 
-from torchao.sparsity.training import (
-    SemiSparseLinear,
-    swap_linear_with_semi_sparse_linear,
-)
-
 import tiktoken
 
 from typing import Optional
@@ -256,74 +251,3 @@ class DataLoaderLite:
         if self.current_position + (B * T + 1) > len(self.tokens):
             self.current_position = 0
         return x, y
-    
-
-if __name__ == "__main__":   
-    """
-    model = Transformer.from_pretrained("gpt2")
-    print("didn't crash yay!")
-    """
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-    print(f"device: {device}")
-
-    seed = 1337
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
-
-    train_loader = DataLoaderLite(B=16, T=1024)
-
-    torch.set_float32_matmul_precision("high")
-
-    model = Transformer(ModelArgs())
-
-    # print params: should be 0 if zero-3
-    total_params  = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"model params: {total_params}")
-
-    # enable sparsity only in the feedfoward layers
-    def swap_ffn_linear_layers(model):
-        sparse_config = {}
-
-        for name, module in model.named_modules():
-            if isinstance(module, nn.Linear) and any(sub_name in name for sub_name in ['mlp.c_fc', 'mlp.c_proj']):
-                sparse_config[name] = SemiSparseLinear
-        swap_linear_with_semi_sparse_linear(model, sparse_config)
-
-        return model
-
-    model = model.to(device).to(torch.float16)
-    model = swap_ffn_linear_layers(model)
-    #import code; code.interact(local=locals())
-    torch._inductor.config.max_autotune = True
-    torch._inductor.config.max_autotune_gemm = True
-    torch._inductor.config.max_autotune_gemm_search_space = "DEFAULT"
-    torch._inductor.config.coordinate_descent_tuning = True
-    torch._inductor.config.conv_1x1_as_mm = True
-    torch._inductor.config.epilogue_fusion = False
-    torch._inductor.config.coordinate_descent_check_all_directions = True
-    model = torch.compile(model)
-
-    # optimize!
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-    run_name = f"LR:{3e-4}__Nhead:{ModelArgs().n_heads}_NLayer:{ModelArgs().n_layers}_EmbDim:{ModelArgs().n_embd}"
-    print(f"run_name: {run_name}")
-
-    for i in range(50):
-        st = time()
-        x, y = train_loader.next_batch()
-        x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        with torch.autocast(device_type="cuda", dtype=torch.float16):
-            logits, loss = model(x, y)
-        # import code; code.interact(local=locals())
-        loss.backward()
-        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        optimizer.step()
-        torch.cuda.synchronize()
-        et = time() - st
-        tokens_per_sec = (train_loader.B * train_loader.T) / (et)
-        print(f"step {i}, loss: {loss.item()}, et: {et*1e3:.2f}ms, tok/sec: {tokens_per_sec:.2f}")
-        # print(f"step {i}, loss: {loss.item()}") # loss is a tensor with a single element(cuda) -> item convert to float
