@@ -49,6 +49,7 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2) # (B, nh, T, hs)
         v = v.view(B, T, self.n_heads, C // self.n_heads).transpose(1, 2) # (B, nh, T, hs)
 
+        # scale=1 / self.head_dim -> # mup
         y = F.scaled_dot_product_attention(q, k, v, is_causal=True) # (B, nh, T, hs)
 
         y = y.transpose(1, 2).contiguous().view(B, T, C) # re-assemble all head outputs side by side
