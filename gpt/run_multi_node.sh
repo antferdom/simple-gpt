@@ -26,11 +26,10 @@ else
 
     for lr in "${lrs[@]}"; do
         for width in "${widths[@]}"; do
-            run_name="lr_${lr}_width_${width}"
+            run_name="lr_${lr}"
             deepspeed --master_port $MASTER_PORT --hostfile $HOST_FILE_PATH --num_nodes ${NUM_NODES} --num_gpus ${NGPU} \
             run_trainer.py \
-            --lr $lr \
-            --width $width \
+            --learning-rate $lr \
             --run_name $run_name
         done
     done
