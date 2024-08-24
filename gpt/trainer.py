@@ -28,7 +28,7 @@ app = typer.Typer()
 
 
 class WikiTextDataset(Dataset):
-    def __init__(self, tokenizer, type_path="train", max_length=1024):
+    def __init__(self, tokenizer, type_path="train", max_length=512):
         self.vernum = 103
         self.dataset = load_dataset(
             "wikitext", f"wikitext-{self.vernum}-raw-v1", split=type_path
@@ -37,7 +37,7 @@ class WikiTextDataset(Dataset):
         self.max_length = max_length
 
     def __len__(self):
-        return int(len(self.dataset) * 0.1)
+        return int(len(self.dataset))
 
     def __getitem__(self, idx):
         text = self.dataset[idx]["text"]
@@ -166,7 +166,7 @@ def main(
             "stage": zero_stage,
             "offload_param": {"device": offload_device},
             "offload_optimizer": {"device": offload_device},
-            "stage3_param_persistence_threshold": 1e4,
+            "stage3_param_persistence_threshold": 1e9,
             "stage3_max_live_parameters": 3e7,
             "stage3_prefetch_bucket_size": 3e7,
             "memory_efficient_linear": False,
@@ -232,6 +232,9 @@ def main(
 
     model.train()
 
+    """
+    vocab_size * n_embd + max_seq_len * n_embd + 4 * n_embd * head_dim * n_heads * n_layers + 8 (n_embd)^2 * n_layers + 5 * n_emb * n_layers
+    """
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     model_memory_gb = total_params * 4 / (1024**3)
     print(f"model params: {total_params}")
@@ -250,7 +253,6 @@ def main(
         if local_rank == -1
         else DistributedSampler(val_dataset, seed=seed)
     )
-
     train_loader = DataLoader(
         train_dataset,
         collate_fn=default_data_collator,
@@ -263,7 +265,6 @@ def main(
         sampler=eval_sampler,
         batch_size=train_micro_batch_size_per_gpu * 2,
     )
-
     # weight decay config
     no_decay_name_list = [
         "bias",
@@ -323,13 +324,12 @@ def main(
             train_sampler.set_epoch(epoch)
 
         avg_train_loss = train(model_engine, train_loader, model_engine.device)
-
+        
         logger.info(f"Epoch {epoch+1}, Train Loss: {avg_train_loss}")
         eval_loss, perp = validate(model_engine, val_loader, device=device)
         if global_rank == 0:
             logger.info(f"Eval loss : {eval_loss}")
             wandb.log({"ppl": perp, "loss": eval_loss, "epoch": epoch})
-
 
 if __name__ == "__main__":
     typer.run(main)
