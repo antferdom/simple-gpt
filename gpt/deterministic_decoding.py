@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 import tiktoken
-from vanilla_model import Transformer
+from model import Transformer
 import random
 import numpy as np
 
@@ -33,7 +33,7 @@ all_log_probs = [[] for _ in range(num_return_sequences)]
 
 while x.size(1) < max_length:
     with torch.no_grad():
-        logits, *_ = model(x)
+        logits = model(x)["logits"] # (B, T, vocab_size)
         logits = logits[:, -1, :]
         # Use a deterministic function instead of softmax
         log_probs = F.log_softmax(logits, dim=-1)

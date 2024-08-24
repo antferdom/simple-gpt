@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 import tiktoken
-from vanilla_model import Transformer
+from model import Transformer
 
 
 num_return_sequences = 5
@@ -25,7 +25,7 @@ torch.cuda.manual_seed(42)
 while x.size(1) < max_length:
     # forward the model to get the logits
     with torch.no_grad():
-        logits, _ = model(x) # (B, T, vocab_size)
+        logits = model(x)["logits"] # (B, T, vocab_size)
         # take the logits at the last position
         logits = logits[:, -1, :] # (B, vocab_size)
         # get the probabilities
