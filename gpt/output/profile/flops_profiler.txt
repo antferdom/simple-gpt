@@ -1,0 +1,842 @@
+
+-------------------------- DeepSpeed Flops Profiler --------------------------
+Profile Summary at step 2:
+Notations:
+data parallel size (dp_size), model parallel size(mp_size),
+number of parameters (params), number of multiply-accumulate operations(MACs),
+number of floating-point operations (flops), floating-point operations per second (FLOPS),
+fwd latency (forward propagation latency), bwd latency (backward propagation latency),
+step (weights update latency), iter latency (sum of fwd, bwd and step latency)
+
+world size:                                                             4       
+data parallel size:                                                     4       
+model parallel size:                                                    1       
+batch size per GPU:                                                     32      
+params per GPU:                                                         1.64 B  
+params of model = params per GPU * mp_size:                             1.64 B  
+fwd MACs per GPU:                                                       71.57 TMACs
+fwd flops per GPU:                                                      143.16 T
+fwd flops of model = fwd flops per GPU * mp_size:                       143.16 T
+fwd latency:                                                            895.37 ms
+fwd FLOPS per GPU = fwd flops per GPU / fwd latency:                    159.89 TFLOPS
+bwd latency:                                                            606.12 ms
+bwd FLOPS per GPU = 2 * fwd flops per GPU / bwd latency:                472.37 TFLOPS
+fwd+bwd FLOPS per GPU = 3 * fwd flops per GPU / (fwd+bwd latency):      286.03 TFLOPS
+step latency:                                                           606.01 ms
+iter latency:                                                           2.11 s  
+FLOPS per GPU = 3 * fwd flops per GPU / iter latency:                   203.78 TFLOPS
+samples/second:                                                         60.74   
+
+----------------------------- Aggregated Profile per GPU -----------------------------
+Top 1 modules in terms of params, MACs or fwd latency at different model depths:
+depth 0:
+    params      - {'Transformer': '1.64 B'}
+    MACs        - {'Transformer': '71.57 TMACs'}
+    fwd latency - {'Transformer': '892.53 ms'}
+depth 1:
+    params      - {'ModuleDict': '1.56 B'}
+    MACs        - {'ModuleDict': '68.93 TMACs'}
+    fwd latency - {'ModuleDict': '834.34 ms'}
+depth 2:
+    params      - {'ModuleList': '1.48 B'}
+    MACs        - {'ModuleList': '68.93 TMACs'}
+    fwd latency - {'ModuleList': '833.66 ms'}
+depth 3:
+    params      - {'TransformerBlock': '1.48 B'}
+    MACs        - {'TransformerBlock': '68.93 TMACs'}
+    fwd latency - {'TransformerBlock': '833.66 ms'}
+depth 4:
+    params      - {'FeedForward': '983.42 M'}
+    MACs        - {'CausalSelfAttention': '36.72 TMACs'}
+    fwd latency - {'FeedForward': '325.7 ms'}
+
+------------------------------ Detailed Profile per GPU ------------------------------
+Each module profile is listed after its name in the following order: 
+params, percentage of total params, MACs, percentage of total MACs, fwd latency, percentage of total fwd latency, fwd FLOPS
+
+Note: 1. A module can have torch.nn.module or torch.nn.functional to compute logits (e.g. CrossEntropyLoss). They are not counted as submodules, thus not to be printed out. However they make up the difference between a parent's MACs (or latency) and the sum of its submodules'.
+2. Number of floating-point operations is a theoretical estimation, thus FLOPS computed using that could be larger than the maximum system throughput.
+3. The fwd latency listed in the top module's profile is directly captured at the module forward function in PyTorch, thus it's less than the fwd latency shown above which is captured in DeepSpeed.
+
+Transformer(
+  1.64 B = 100% Params, 71.57 TMACs = 100% MACs, 892.53 ms = 100% latency, 160.39 TFLOPS
+  (transformer): ModuleDict(
+    1.56 B = 95.09% Params, 68.93 TMACs = 96.32% MACs, 834.34 ms = 93.48% latency, 165.26 TFLOPS
+    (wte): Embedding(80.41 M = 4.91% Params, 0 MACs = 0% MACs, 307.32 us = 0.03% latency, 0 FLOPS, 50257, 1600)
+    (wpe): Embedding(1.64 M = 0.1% Params, 0 MACs = 0% MACs, 200.75 us = 0.02% latency, 0 FLOPS, 1024, 1600)
+    (h): ModuleList(
+      (0): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 8.41 ms = 0.94% latency, 341.43 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 192.64 us = 0.02% latency, 680.39 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 2.91 ms = 0.33% latency, 526.08 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 1.59 ms = 0.18% latency, 317.36 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 595.81 us = 0.07% latency, 281.59 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.23 us = 0.02% latency, 769.97 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 4.37 ms = 0.49% latency, 306.81 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 1.99 ms = 0.22% latency, 338.07 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 327.83 us = 0.04% latency, 319.86 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 1.51 ms = 0.17% latency, 445.65 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (1): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 10.32 ms = 1.16% latency, 278.43 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 2.21 ms = 0.25% latency, 59.35 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 2.82 ms = 0.32% latency, 542.21 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 1.53 ms = 0.17% latency, 329.96 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 586.75 us = 0.07% latency, 285.94 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.47 us = 0.02% latency, 768.89 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 4.36 ms = 0.49% latency, 307.95 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 1.99 ms = 0.22% latency, 337.95 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 321.87 us = 0.04% latency, 325.78 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 1.51 ms = 0.17% latency, 445.8 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (2): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 12.97 ms = 1.45% latency, 221.48 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 169.99 us = 0.02% latency, 771.05 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.54 ms = 0.51% latency, 336.87 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.04 ms = 0.23% latency, 246.25 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.76 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.38 us = 0.02% latency, 760.38 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.34 ms = 0.71% latency, 211.68 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.35 ms = 0.26% latency, 286.14 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.33 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 326.31 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (3): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.57 ms = 1.52% latency, 211.68 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.71 us = 0.02% latency, 767.82 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 296.11 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 187.92 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.32 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.48 us = 0.02% latency, 746.95 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.04 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 287.98 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.45 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 326.08 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (4): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.48 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.23 us = 0.02% latency, 769.97 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.19 ms = 0.58% latency, 294.82 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.69 ms = 0.3% latency, 186.77 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.87 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.42 us = 0.02% latency, 764.61 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.04 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.34 ms = 0.26% latency, 286.93 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.62 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.3 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (5): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.5 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 181.91 us = 0.02% latency, 720.52 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.34 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.5 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.27 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.57 us = 0.02% latency, 755.16 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.05 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.66 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.39 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 326.8 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (6): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.5 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.42 us = 0.02% latency, 764.61 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.11 ms = 0.57% latency, 299.19 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.62 ms = 0.29% latency, 192.04 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.43 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.04 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.76 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.03 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 329.21 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (7): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.57 ms = 1.52% latency, 211.68 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.42 us = 0.02% latency, 764.61 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.2 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 190 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.83 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.66 us = 0.02% latency, 763.55 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.35 ms = 0.71% latency, 211.54 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.34 ms = 0.26% latency, 286.9 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.66 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 326.73 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (8): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.6 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 169.75 us = 0.02% latency, 772.13 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.41 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 188.13 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.74 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 197.41 us = 0.02% latency, 663.96 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.3 ms = 0.71% latency, 213 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.05 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.34 ms = 0.15% latency, 78.15 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.45 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (9): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.59 ms = 1.52% latency, 211.39 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 767.71 us = 0.09% latency, 170.73 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.58 ms = 0.51% latency, 334.13 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.08 ms = 0.23% latency, 241.96 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.97 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.38 us = 0.02% latency, 760.38 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.34 ms = 0.71% latency, 211.83 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.34 ms = 0.26% latency, 287.37 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.43 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.37 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (10): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.48 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 181.44 us = 0.02% latency, 722.41 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 296.88 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.03 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.88 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 180.48 us = 0.02% latency, 726.23 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.34 ms = 0.71% latency, 211.83 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 287.42 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.99 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.87 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (11): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.62 ms = 1.64% latency, 196.44 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 178.34 us = 0.02% latency, 734.97 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 296.92 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.15 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.39 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 181.44 us = 0.02% latency, 722.41 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 7.38 ms = 0.83% latency, 181.99 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 3.36 ms = 0.38% latency, 199.49 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.55 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 326.57 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (12): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.56 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.28 us = 0.02% latency, 752.06 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 296.14 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 187.93 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.57 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 197.17 us = 0.02% latency, 664.76 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.3 ms = 0.71% latency, 213.04 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.31 ms = 0.26% latency, 290.36 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.13 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.56 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (13): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.59 ms = 1.52% latency, 211.36 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.9 us = 0.02% latency, 762.49 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 295.8 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 187.97 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.29 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.28 us = 0.02% latency, 752.06 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 287.69 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.49 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 326.42 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (14): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.57 ms = 1.52% latency, 211.71 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.38 us = 0.02% latency, 760.38 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.03 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.6 ms = 0.29% latency, 193.36 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.62 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.33 us = 0.02% latency, 756.2 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 211.92 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 287.72 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.97 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.49 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (15): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.54 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 296.1 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.57 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.62 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.52 us = 0.02% latency, 751.03 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.32 ms = 0.71% latency, 212.24 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.9 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.58 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.91 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (16): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.63 ms = 1.64% latency, 196.36 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 187.87 us = 0.02% latency, 697.66 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 296.91 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.57 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.76 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 193.12 us = 0.02% latency, 678.71 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.31 ms = 0.71% latency, 212.88 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.3 ms = 0.26% latency, 291.47 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.08 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 326.16 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (17): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.63 ms = 1.64% latency, 196.32 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 762.7 us = 0.09% latency, 171.85 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.58 ms = 0.51% latency, 334.13 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.08 ms = 0.23% latency, 242.21 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.5 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.19 us = 0.02% latency, 743.92 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 7.38 ms = 0.83% latency, 181.87 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 3.38 ms = 0.38% latency, 198.84 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.35 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.79 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (18): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.6 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.85 us = 0.02% latency, 758.28 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 296.1 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 188.1 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.99 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.67 us = 0.02% latency, 741.91 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.32 ms = 0.71% latency, 212.38 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.31 ms = 0.26% latency, 290.18 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.2 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 329.44 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (19): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.59 ms = 1.52% latency, 211.42 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 196.7 us = 0.02% latency, 666.37 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.11 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.38 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.62 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.43 us = 0.02% latency, 742.91 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.72 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.84 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.49 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (20): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.53 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.9 us = 0.02% latency, 762.49 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 295.93 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.29 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.86 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.57 us = 0.02% latency, 755.16 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.31 ms = 0.71% latency, 212.81 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.3 ms = 0.26% latency, 291.59 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.46 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 328.06 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (21): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.62 ms = 1.64% latency, 196.54 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 296.11 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.74 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.99 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.33 us = 0.02% latency, 756.2 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 7.38 ms = 0.83% latency, 181.92 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 3.38 ms = 0.38% latency, 198.78 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.7 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 326.88 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (22): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.59 ms = 1.52% latency, 211.45 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.33 us = 0.02% latency, 756.2 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 295.89 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 188.05 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 129.31 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 178.58 us = 0.02% latency, 733.99 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.32 ms = 0.71% latency, 212.35 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.82 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.49 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 329.25 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (23): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.58 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 197.41 us = 0.02% latency, 663.96 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.04 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 189.62 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 127.73 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 177.86 us = 0.02% latency, 736.94 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.15 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.67 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.1 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.72 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (24): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.65 ms = 1.64% latency, 196.07 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175 us = 0.02% latency, 748.99 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.13 ms = 0.58% latency, 297.98 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.6 ms = 0.29% latency, 193.66 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.28 ms = 0.14% latency, 130.89 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.19 us = 0.02% latency, 743.92 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 7.35 ms = 0.82% latency, 182.65 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.29 ms = 0.26% latency, 292.5 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.1 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 3.1 ms = 0.35% latency, 216.2 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (25): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.57 ms = 1.52% latency, 211.74 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 747.2 us = 0.08% latency, 175.42 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.57 ms = 0.51% latency, 334.57 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.07 ms = 0.23% latency, 242.62 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.18 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.95 us = 0.02% latency, 744.93 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.06 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.96 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.65 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.22 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (26): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.61 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.05 us = 0.02% latency, 753.09 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.62 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 188.99 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.6 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.24 us = 0.02% latency, 747.97 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.32 ms = 0.71% latency, 212.46 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.69 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.13 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.6 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (27): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.47 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 195.5 us = 0.02% latency, 670.43 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.14 ms = 0.58% latency, 297.4 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 189.79 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.69 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.48 us = 0.02% latency, 746.95 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.22 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.9 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.47 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.56 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (28): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.57 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.81 us = 0.02% latency, 754.12 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.26 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.39 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.83 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 178.1 us = 0.02% latency, 735.95 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.3 ms = 0.71% latency, 213.06 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.29 ms = 0.26% latency, 292.44 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.91 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.98 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (29): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.59 ms = 1.52% latency, 211.42 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.33 us = 0.02% latency, 756.2 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.18 ms = 0.58% latency, 295.28 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.45 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.18 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.81 us = 0.02% latency, 754.12 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.35 ms = 0.71% latency, 211.4 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.78 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.39 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.07 ms = 0.23% latency, 323.91 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (30): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.56 ms = 1.52% latency, 211.8 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 169.75 us = 0.02% latency, 772.13 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.2 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.55 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.57 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.48 us = 0.02% latency, 746.95 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.32 ms = 0.71% latency, 212.35 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 288.4 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.39 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.64 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (31): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 16.72 ms = 1.87% latency, 171.76 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 169.99 us = 0.02% latency, 771.05 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.17 ms = 0.58% latency, 295.81 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.29 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.27 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.91 us = 0.02% latency, 740.91 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 9.45 ms = 1.06% latency, 142 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.31 ms = 0.26% latency, 290.54 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 4.53 ms = 0.51% latency, 23.17 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.37 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (32): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 18.83 ms = 2.11% latency, 152.52 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.47 us = 0.02% latency, 768.89 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.69 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 190.12 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.43 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.95 us = 0.02% latency, 744.93 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 8.41 ms = 0.94% latency, 159.52 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.26 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.35 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 4.14 ms = 0.46% latency, 161.94 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (33): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.62 ms = 1.64% latency, 196.44 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 746.97 us = 0.08% latency, 175.47 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.63 ms = 0.63% latency, 271.74 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.08 ms = 0.23% latency, 242.54 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.86 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.95 us = 0.02% latency, 744.93 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.11 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 288.81 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 76.01 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.17 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (34): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 18.85 ms = 2.11% latency, 152.43 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.57 us = 0.02% latency, 755.16 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.41 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 188.91 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.08 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 180.01 us = 0.02% latency, 728.15 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.29 ms = 0.71% latency, 213.31 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.29 ms = 0.26% latency, 292.72 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.68 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.56 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (35): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.56 ms = 1.52% latency, 211.78 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 169.28 us = 0.02% latency, 774.3 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 296.97 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.64 ms = 0.3% latency, 190.56 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.53 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 175.95 us = 0.02% latency, 744.93 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.11 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.05 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.99 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.79 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (36): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.57 ms = 1.52% latency, 211.63 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.81 us = 0.02% latency, 754.12 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.08 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.66 ms = 0.3% latency, 189.55 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.32 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 176.91 us = 0.02% latency, 740.91 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.34 ms = 0.71% latency, 211.76 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.08 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.92 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.79 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (37): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 18.83 ms = 2.11% latency, 152.58 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 194.07 us = 0.02% latency, 675.38 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.13 ms = 0.57% latency, 298.19 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.64 ms = 0.3% latency, 190.7 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.95 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.76 us = 0.02% latency, 750.01 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 11.58 ms = 1.3% latency, 115.96 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 7.57 ms = 0.85% latency, 88.63 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.15% latency, 75.93 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.45 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (38): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 151.09 ms = 16.93% latency, 19.01 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.33 us = 0.02% latency, 756.2 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 6.21 ms = 0.7% latency, 246.43 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 3.71 ms = 0.42% latency, 135.65 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.15 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 317.57 us = 0.04% latency, 412.73 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 8.1 ms = 0.91% latency, 165.66 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 4.1 ms = 0.46% latency, 163.71 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.57 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.71 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (39): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 20.02 ms = 2.24% latency, 143.51 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.18 us = 0.02% latency, 765.68 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.85 ms = 0.54% latency, 315.69 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.34 ms = 0.26% latency, 215.17 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.32 ms = 0.15% latency, 127.07 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.28 us = 0.02% latency, 752.06 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 11.71 ms = 1.31% latency, 114.63 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.32 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 5.6 ms = 0.63% latency, 18.74 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.98 ms = 0.33% latency, 225.32 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (40): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.32 ms = 1.49% latency, 215.64 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 206.95 us = 0.02% latency, 633.36 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.81 ms = 0.54% latency, 318.38 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.33 ms = 0.26% latency, 215.79 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.74 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.38 us = 0.02% latency, 760.38 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.35 ms = 0.71% latency, 211.52 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.32 ms = 0.26% latency, 289.05 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.57 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 325.86 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (41): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.46 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 764.37 us = 0.09% latency, 171.48 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 4.57 ms = 0.51% latency, 334.6 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.06 ms = 0.23% latency, 243.83 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.72 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 211.95 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 288.31 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.36 ms = 0.15% latency, 76.85 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 326.95 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (42): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 20.93 ms = 2.34% latency, 137.25 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 170.95 us = 0.02% latency, 766.74 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.16 ms = 0.58% latency, 296.28 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.37 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.6 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.05 us = 0.02% latency, 753.09 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 9.46 ms = 1.06% latency, 141.86 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.3 ms = 0.26% latency, 292.2 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.38 ms = 0.16% latency, 75.71 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 5.19 ms = 0.58% latency, 129.35 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (43): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 27.21 ms = 3.05% latency, 105.56 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 173.81 us = 0.02% latency, 754.12 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 18.8 ms = 2.11% latency, 81.38 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 12.1 ms = 1.36% latency, 41.6 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.29 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 178.81 us = 0.02% latency, 733.01 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.33 ms = 0.71% latency, 212.21 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.45 ms = 0.27% latency, 273.76 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.24 ms = 0.14% latency, 84.38 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.05 ms = 0.23% latency, 327.68 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (44): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.54 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.9 us = 0.02% latency, 762.49 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.18 ms = 0.58% latency, 295.47 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.68 ms = 0.3% latency, 188.07 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.18 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.31 ms = 0.71% latency, 212.82 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.31 ms = 0.26% latency, 290.9 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.37 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 328.33 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (45): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 14.63 ms = 1.64% latency, 196.37 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.42 us = 0.02% latency, 764.61 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.15 ms = 0.58% latency, 297.39 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 190.2 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.43 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.05 us = 0.02% latency, 753.09 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 7.4 ms = 0.83% latency, 181.49 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 3.38 ms = 0.38% latency, 198.77 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.59 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.07 ms = 0.23% latency, 324.06 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (46): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.58 ms = 1.52% latency, 211.59 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.62 us = 0.02% latency, 759.33 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.18 ms = 0.58% latency, 295.25 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.67 ms = 0.3% latency, 188.59 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.31 ms = 0.15% latency, 128.5 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 183.58 us = 0.02% latency, 713.97 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.31 ms = 0.71% latency, 212.84 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.31 ms = 0.26% latency, 290.87 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.39 ms = 0.16% latency, 75.23 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.04 ms = 0.23% latency, 329.52 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+      (47): TransformerBlock(
+        30.74 M = 1.88% Params, 1.44 TMACs = 2.01% MACs, 13.56 ms = 1.52% latency, 211.91 TFLOPS
+        (ln_1): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 171.18 us = 0.02% latency, 765.68 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (attn): CausalSelfAttention(
+          10.25 M = 0.63% Params, 765.04 GMACs = 1.07% MACs, 5.14 ms = 0.58% latency, 297.62 TFLOPS
+          (c_attn): Linear(7.68 M = 0.47% Params, 251.66 GMACs = 0.35% MACs, 2.65 ms = 0.3% latency, 190.27 TFLOPS, in_features=1600, out_features=4800, bias=True)
+          (c_proj): Linear(2.56 M = 0.16% Params, 83.89 GMACs = 0.12% MACs, 1.3 ms = 0.15% latency, 128.81 TFLOPS, in_features=1600, out_features=1600, bias=True)
+        )
+        (ln_2): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 172.85 us = 0.02% latency, 758.28 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+        (mlp): FeedForward(
+          20.49 M = 1.25% Params, 671.09 GMACs = 0.94% MACs, 6.34 ms = 0.71% latency, 211.76 TFLOPS
+          (c_fc): Linear(10.25 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.33 ms = 0.26% latency, 288.4 TFLOPS, in_features=1600, out_features=6400, bias=True)
+          (gelu): GELU(0 = 0% Params, 0 MACs = 0% MACs, 1.37 ms = 0.15% latency, 76.63 GFLOPS, approximate='none')
+          (c_proj): Linear(10.24 M = 0.63% Params, 335.54 GMACs = 0.47% MACs, 2.06 ms = 0.23% latency, 325.56 TFLOPS, in_features=6400, out_features=1600, bias=True)
+        )
+      )
+    )
+    (ln_f): LayerNorm(3.2 K = 0% Params, 0 MACs = 0% MACs, 174.52 us = 0.02% latency, 751.03 GFLOPS, (1600,), eps=1e-05, elementwise_affine=True)
+  )
+  (lm_head): Linear(80.41 M = 4.91% Params, 2.63 TMACs = 3.68% MACs, 40.73 ms = 4.56% latency, 129.38 TFLOPS, in_features=1600, out_features=50257, bias=False)
+  (loss_fn): CrossEntropyLoss(0 = 0% Params, 0 MACs = 0% MACs, 4.26 ms = 0.48% latency, 0 FLOPS)
+)
+------------------------------------------------------------------------------
